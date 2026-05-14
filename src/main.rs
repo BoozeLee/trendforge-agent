@@ -1,5 +1,6 @@
 mod ace_client;
 mod config;
+mod demo;
 mod sap;
 mod workflow;
 mod x402;
@@ -15,13 +16,17 @@ use tracing::{error, info};
 #[derive(Parser, Debug)]
 #[command(name = "trendforge", about = "Autonomous SAP agent — TrendForge")]
 struct Cli {
-    /// Run once and exit (default: loop)
+    /// Run once and exit
     #[arg(long)]
     once: bool,
 
     /// Override the search query
     #[arg(long)]
     query: Option<String>,
+
+    /// Run demo mode (no wallet/funds needed)
+    #[arg(long)]
+    demo: bool,
 }
 
 #[tokio::main]
@@ -34,8 +39,12 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let mut config = config::Config::from_env()?;
 
+    if cli.demo {
+        return demo::run().await;
+    }
+
+    let mut config = config::Config::from_env()?;
     if let Some(q) = cli.query {
         config.search_query = q;
     }
@@ -48,7 +57,6 @@ async fn main() -> Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    // Verify agent is registered
     if sap::is_registered(&rpc, &payer.pubkey()) {
         info!("Agent confirmed registered on SAP mainnet");
     } else {
@@ -61,7 +69,6 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Autonomous loop
     let interval = Duration::from_secs(config.workflow_interval_secs);
     loop {
         match workflow::run_once(&config, &rpc, &payer).await {
@@ -69,7 +76,8 @@ async fn main() -> Result<()> {
                 info!(
                     query = report.query,
                     agents = report.sap_agents_discovered,
-                    "workflow complete — sleeping {}s", config.workflow_interval_secs
+                    "workflow complete — sleeping {}s",
+                    config.workflow_interval_secs
                 );
             }
             Err(e) => {
