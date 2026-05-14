@@ -2,6 +2,7 @@ mod ace_client;
 mod config;
 mod demo;
 mod sap;
+mod server;
 mod workflow;
 mod x402;
 
@@ -27,6 +28,14 @@ struct Cli {
     /// Run demo mode (no wallet/funds needed)
     #[arg(long)]
     demo: bool,
+
+    /// Run as x402 HTTP server (other agents pay you USDC for reports)
+    #[arg(long)]
+    serve: bool,
+
+    /// Port for x402 server (default: 8402)
+    #[arg(long, default_value = "8402")]
+    port: u16,
 }
 
 #[tokio::main]
@@ -61,6 +70,11 @@ async fn main() -> Result<()> {
         info!("Agent confirmed registered on SAP mainnet");
     } else {
         info!("Agent not yet registered — run `cargo run --bin register` first");
+    }
+
+    if cli.serve {
+        info!(port = cli.port, price_usdc = 0.10, "starting x402 earnings server");
+        return server::run_server(cli.port, config, payer).await;
     }
 
     if cli.once {
