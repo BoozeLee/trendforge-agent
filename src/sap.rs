@@ -9,7 +9,7 @@ use solana_rpc_client_api::config::{RpcAccountInfoConfig, RpcProgramAccountsConf
 use solana_sdk::pubkey::Pubkey;
 use tracing::info;
 
-pub const SAP_PROGRAM_ID: &str = "SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AythGpFETZ";
+pub const SAP_PROGRAM_ID: &str = "SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ";
 #[allow(dead_code)]
 pub const GLOBAL_REGISTRY: &str = "9odFrYBBZq6UQC6aGyzMPNXWJQn55kMtfigzhLg6S6L5";
 

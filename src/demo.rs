@@ -39,7 +39,7 @@ pub async fn run() -> Result<()> {
 
     // ── Step 1: SAP Tool Discovery ────────────────────────────────────────────
     step!(1, "SAP On-Chain Tool Discovery  (Synapse Agent Protocol)");
-    println!("  Program: SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AythGpFETZ");
+    println!("  Program: SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ");
     println!("  RPC:     Synapse mainnet (us-1-mainnet.oobeprotocol.ai)");
     tokio::time::sleep(Duration::from_millis(600)).await;
     ok!("Fetched 31 AgentAccount PDAs via getProgramAccounts");
@@ -115,7 +115,7 @@ pub async fn run() -> Result<()> {
     println!("\x1b[1;32m══════════════════════════════════════════════════════════\x1b[0m");
     println!();
     println!("  Agent wallet : 3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF");
-    println!("  SAP program  : SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AythGpFETZ");
+    println!("  SAP program  : SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ");
     println!("  Explorer     : https://explorer.oobeprotocol.ai/agents/3L5ZJQ...");
     println!();
     println!("  Ace Data Cloud services used (3/3 required):");

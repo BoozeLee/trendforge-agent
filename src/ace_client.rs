@@ -1,18 +1,19 @@
-// Ace Data Cloud API client with x402 payment support.
-// Each call pattern: attempt → 402 → sign payment → retry with X-Payment.
+// Ace Data Cloud client — supports both API key (free credits) and x402 payment modes.
+// Set ACE_API_KEY in .env for free-credit mode. Leave unset to use x402.
 
 use crate::x402::{self, PaymentRequiredBody, PaymentRequirement};
 use anyhow::{bail, Context, Result};
 use reqwest::{Client, Response, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use solana_rpc_client::rpc_client::RpcClient;
 use solana_sdk::signature::Keypair;
-use tracing::{info, warn};
+use tracing::info;
 
 pub struct AceClient {
     http: Client,
     base: String,
+    api_key: Option<String>,
 }
 
 impl AceClient {
@@ -20,89 +21,61 @@ impl AceClient {
         Self {
             http: Client::new(),
             base: base.trim_end_matches('/').to_string(),
+            api_key: std::env::var("ACE_API_KEY").ok(),
         }
     }
 
-    /// POST with x402 payment if required. Returns parsed JSON body.
-    pub async fn post_with_payment(
-        &self,
-        path: &str,
-        body: Value,
-        rpc: &RpcClient,
-        payer: &Keypair,
-    ) -> Result<Value> {
+    pub fn mode(&self) -> &str {
+        if self.api_key.is_some() { "api-key" } else { "x402" }
+    }
+
+    /// POST — uses API key if available, falls back to x402 payment.
+    pub async fn post(&self, path: &str, body: Value, rpc: &RpcClient, payer: &Keypair) -> Result<Value> {
         let url = format!("{}{}", self.base, path);
+        let req = self.http.post(&url).json(&body);
+        let req = if let Some(k) = &self.api_key {
+            req.header("Authorization", format!("Bearer {k}"))
+        } else {
+            req
+        };
 
-        // First attempt (no auth)
-        let resp = self
-            .http
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .context("initial POST")?;
+        let resp = req.send().await.context("POST request")?;
 
-        if resp.status() == StatusCode::PAYMENT_REQUIRED {
-            let req = self.extract_solana_req(resp).await?;
-            info!(
-                amount = req.max_amount_required,
-                pay_to = req.pay_to,
-                "402 received — signing Solana payment"
-            );
-            let header = x402::build_x402_header(rpc, payer, &req)
-                .context("build x402 header")?;
-
-            let retry = self
-                .http
-                .post(&url)
-                .json(&body)
-                .header("X-Payment", &header)
-                .send()
-                .await
-                .context("retry POST with X-Payment")?;
-
-            return self.parse_ok(retry).await;
+        if resp.status() == StatusCode::PAYMENT_REQUIRED && self.api_key.is_none() {
+            let req_info = self.extract_solana_req(resp).await?;
+            info!(amount = req_info.max_amount_required, "x402: signing Solana payment");
+            let header = x402::build_x402_header(rpc, payer, &req_info)?;
+            return self.parse_ok(
+                self.http.post(&url).json(&body)
+                    .header("X-Payment", &header)
+                    .send().await.context("retry with X-Payment")?
+            ).await;
         }
 
         self.parse_ok(resp).await
     }
 
-    /// GET with x402 payment if required.
-    pub async fn get_with_payment(
-        &self,
-        path: &str,
-        query: &[(&str, &str)],
-        rpc: &RpcClient,
-        payer: &Keypair,
-    ) -> Result<Value> {
+    /// GET — uses API key if available, falls back to x402.
+    pub async fn get(&self, path: &str, query: &[(&str, &str)], rpc: &RpcClient, payer: &Keypair) -> Result<Value> {
         let url = format!("{}{}", self.base, path);
+        let req = self.http.get(&url).query(query);
+        let req = if let Some(k) = &self.api_key {
+            req.header("Authorization", format!("Bearer {k}"))
+        } else {
+            req
+        };
 
-        let resp = self
-            .http
-            .get(&url)
-            .query(query)
-            .send()
-            .await
-            .context("initial GET")?;
+        let resp = req.send().await.context("GET request")?;
 
-        if resp.status() == StatusCode::PAYMENT_REQUIRED {
-            let req = self.extract_solana_req(resp).await?;
-            info!(
-                amount = req.max_amount_required,
-                "402 received — signing Solana payment"
-            );
-            let header = x402::build_x402_header(rpc, payer, &req)?;
-
-            let retry = self
-                .http
-                .get(&url)
-                .query(query)
-                .header("X-Payment", &header)
-                .send()
-                .await
-                .context("retry GET with X-Payment")?;
-
-            return self.parse_ok(retry).await;
+        if resp.status() == StatusCode::PAYMENT_REQUIRED && self.api_key.is_none() {
+            let req_info = self.extract_solana_req(resp).await?;
+            info!(amount = req_info.max_amount_required, "x402: signing Solana payment");
+            let header = x402::build_x402_header(rpc, payer, &req_info)?;
+            return self.parse_ok(
+                self.http.get(&url).query(query)
+                    .header("X-Payment", &header)
+                    .send().await.context("retry with X-Payment")?
+            ).await;
         }
 
         self.parse_ok(resp).await
@@ -117,11 +90,11 @@ impl AceClient {
 
     async fn parse_ok(&self, resp: Response) -> Result<Value> {
         let status = resp.status();
-        let text = resp.text().await.context("read response body")?;
+        let text = resp.text().await.context("read body")?;
         if !status.is_success() {
             bail!("HTTP {status}: {text}");
         }
-        serde_json::from_str(&text).context("parse JSON response")
+        serde_json::from_str(&text).context("parse JSON")
     }
 }
 
@@ -140,30 +113,23 @@ impl<'a> AceServices<'a> {
 
     /// Service 1 — Web Search (Google SERP)
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        info!(query, "Ace: web search");
-        let resp = self
-            .client
-            .get_with_payment(
-                "/serp/google",
-                &[("q", query), ("number", "5")],
-                self.rpc,
-                self.payer,
-            )
-            .await?;
+        info!(query, mode = self.client.mode(), "Ace: web search");
+        let body = serde_json::json!({ "query": query, "number": 5, "type": "search" });
+        let resp = self.client.post("/serp/google", body, self.rpc, self.payer).await?;
 
         let results: Vec<SearchResult> = resp
-            .get("organic_results")
+            .get("positions")
+            .or_else(|| resp.get("organic_results"))
             .or_else(|| resp.get("results"))
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
-
-        info!(count = results.len(), "search results");
+        info!(count = results.len(), "search results received");
         Ok(results)
     }
 
-    /// Service 2 — Chat / LLM (OpenAI-compatible)
+    /// Service 2 — Chat / LLM
     pub async fn chat(&self, system: &str, user: &str) -> Result<String> {
-        info!("Ace: chat/LLM");
+        info!(mode = self.client.mode(), "Ace: chat/LLM");
         let body = serde_json::json!({
             "model": "gpt-4o-mini",
             "messages": [
@@ -172,39 +138,27 @@ impl<'a> AceServices<'a> {
             ],
             "max_tokens": 512
         });
-
-        let resp = self
-            .client
-            .post_with_payment("/openai/chat/completions", body, self.rpc, self.payer)
-            .await?;
-
-        let content = resp["choices"][0]["message"]["content"]
+        let resp = self.client.post("/openai/chat/completions", body, self.rpc, self.payer).await?;
+        resp["choices"][0]["message"]["content"]
             .as_str()
-            .context("missing content in chat response")?
-            .to_string();
-        Ok(content)
+            .context("missing content")
+            .map(|s| s.to_string())
     }
 
-    /// Service 3 — Image Generation (Midjourney fast)
+    /// Service 3 — Image Generation (Midjourney)
     pub async fn generate_image(&self, prompt: &str) -> Result<String> {
-        info!("Ace: image generation");
+        info!(mode = self.client.mode(), "Ace: image generation");
         let body = serde_json::json!({
             "prompt": prompt,
             "action": "generate",
             "model": "turbo"
         });
-
-        let resp = self
-            .client
-            .post_with_payment("/midjourney/imagine", body, self.rpc, self.payer)
-            .await?;
-
-        let image_url = resp["image_url"]
+        let resp = self.client.post("/midjourney/imagine", body, self.rpc, self.payer).await?;
+        Ok(resp["image_url"]
             .as_str()
             .or_else(|| resp["imageUrl"].as_str())
-            .unwrap_or("(image url not returned)")
-            .to_string();
-        Ok(image_url)
+            .unwrap_or("(no image url)")
+            .to_string())
     }
 }
 
