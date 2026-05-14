@@ -28,11 +28,17 @@ struct Capability {
 }
 
 #[derive(BorshSerialize)]
+struct PricingEntry {
+    service_id: String,
+    price_usdc: u64,
+}
+
+#[derive(BorshSerialize)]
 struct RegisterAgentArgs {
     name: String,
     description: String,
     capabilities: Vec<Capability>,
-    pricing: Vec<()>,
+    pricing: Vec<PricingEntry>,
     protocols: Vec<String>,
     agent_id: Option<String>,
     agent_uri: Option<String>,
