@@ -100,8 +100,11 @@ fn main() -> Result<()> {
         pricing: vec![],
         protocols: vec!["acedata".into()],
         agent_id: Some("trendforge-v1".into()),
-        agent_uri: None,
-        x402_endpoint: None,
+        agent_uri: Some("https://github.com/BoozeLee/trendforge-agent".into()),
+        x402_endpoint: Some(
+            std::env::var("X402_ENDPOINT")
+                .unwrap_or_else(|_| "https://68a9d07a55197f45-109-129-63-67.serveousercontent.com".into())
+        ),
     };
 
     let disc = anchor_discriminator("global:register_agent");
