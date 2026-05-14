@@ -1,112 +1,119 @@
-# TrendForge — Autonomous SAP Research Agent
+# TrendForge — Autonomous Research Agent on Solana
 
-An autonomous on-chain agent built in Rust for the OOBE Protocol × Ace Data Cloud bounty.
+> Discovers AI tools via SAP → searches the web → analyzes with LLM → generates images → settles every payment on-chain via x402 USDC — zero human input required.
 
-**Category:** Ace Data Cloud Usage (x402 Facilitator)
+Built for the **OOBE Protocol × Ace Data Cloud Bounty** (Ace Data Cloud Usage category).
 
-## What it does
+---
+
+## Architecture
 
 ```
-Trigger → SAP Discovery → SERP Search → LLM Analysis → Image Generation → Report
+┌─────────────────────────────────────────────────────────────┐
+│                    TrendForge Agent Loop                    │
+│                                                             │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐  │
+│  │  SAP     │   │  Ace     │   │  Ace     │   │  Ace   │  │
+│  │ Discovery│──>│  SERP    │──>│  Chat    │──>│ Image  │  │
+│  │          │   │ /search  │   │  /llm    │   │  /mj   │  │
+│  └──────────┘   └──────────┘   └──────────┘   └────────┘  │
+│       │               │               │               │    │
+│       │          x402 USDC       x402 USDC       x402 USDC │
+│       │          payment         payment          payment   │
+│       v               v               v               v    │
+│  Solana mainnet ─────────────────────────────────────────  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Every cycle the agent:
-1. **Discovers** active agents on the Synapse Agent Protocol (SAP) mainnet
-2. **Searches** trending topics via Ace Data Cloud Google SERP API
-3. **Analyzes** results with Ace Data Cloud LLM (gpt-4o-mini via `/openai/chat/completions`)
-4. **Generates** a visual cover via Ace Data Cloud Midjourney (`/midjourney/imagine`)
-5. Saves a JSON + Markdown report to `reports/`
+**5-step workflow (autonomous, runs every hour):**
 
-All three Ace Data Cloud API calls are paid automatically via **x402 on Solana USDC** — no manual input, no API key required.
+1. **SAP Discovery** — `getProgramAccounts` on `SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ` to find all registered agents (31 live on mainnet)
+2. **Web Search** — `POST /serp/google` via Ace Data Cloud, paid with x402 USDC
+3. **LLM Analysis** — `POST /openai/chat/completions` via Ace Data Cloud, paid with x402 USDC
+4. **Image Generation** — `POST /midjourney/imagine` via Ace Data Cloud, paid with x402 USDC
+5. **Report** — saved to `reports/latest.md` with timestamp, analysis, and cover image
 
-## Ace Data Cloud services used (≥ 3 required)
-
-| # | Service | Endpoint |
-|---|---------|----------|
-| 1 | Web Search (SERP) | `GET /serp/google` |
-| 2 | Chat / LLM | `POST /openai/chat/completions` |
-| 3 | Image Generation | `POST /midjourney/imagine` |
-
-## Setup
-
-### 1. Prerequisites
-
-- Rust (stable)
-- Solana CLI
-- A funded Solana wallet with mainnet USDC
-
-### 2. Create a keypair
-
-```bash
-mkdir keys
-solana-keygen new --outfile keys/agent.json
-```
-
-### 3. Configure
-
-```bash
-cp .env.example .env
-# Edit .env:
-# - Set SYNAPSE_RPC_URL (get free tier at https://synapse.oobeprotocol.ai/)
-# - Set SOLANA_KEYPAIR_PATH=keys/agent.json
-```
-
-### 4. Register on SAP mainnet
-
-```bash
-cargo run --bin register
-# Output: ✓ Registered! Explorer: https://explorer.oobeprotocol.ai/agents/<YOUR_WALLET>
-```
-
-### 5. Fund your wallet with USDC
-
-Each workflow cycle costs roughly ~$0.05–0.10 USDC (3 API calls).
-Bridge USDC to Solana mainnet or buy via any DEX.
-
-### 6. Run the agent
-
-```bash
-# Single run (demo / test)
-cargo run --bin trendforge -- --once
-
-# Autonomous loop (runs every WORKFLOW_INTERVAL_SECS)
-cargo run --bin trendforge
-
-# Custom query
-cargo run --bin trendforge -- --once --query "DeFi yield strategies Solana 2026"
-```
+---
 
 ## x402 Payment Flow
 
-```
-Agent calls Ace Data Cloud API (no auth)
-       │
-       ▼  HTTP 402 Payment Required
-       │  { accepts: [{ network: "solana", asset: "USDC_MINT", maxAmountRequired: "...", payTo: "..." }] }
-       │
-       ▼  Build SPL TransferChecked tx → sign → submit via Synapse RPC
-       │
-       ▼  Retry with X-Payment: base64({"x402Version":2,"scheme":"exact","network":"solana","payload":{"signature":"..."}})
-       │
-       ▼  HTTP 200 OK — API response + x402_tx in headers
-```
-
-## Output
-
-Each run writes to `reports/`:
-- `<timestamp>.json` — full structured report
-- `latest.md` — human-readable Markdown report
-
-## Project structure
+Every Ace Data Cloud API call is paid autonomously:
 
 ```
-src/
-├── main.rs          autonomous loop + CLI
-├── config.rs        env/keypair loading
-├── sap.rs           SAP on-chain agent discovery
-├── ace_client.rs    Ace Data Cloud HTTP client (x402-aware)
-├── x402.rs          Solana USDC x402 payment signing
-├── workflow.rs      end-to-end orchestration
-└── bin/
-    └── register.rs  one-time SAP agent registration
+Agent  ->  POST /serp/google
+Server <-  HTTP 402 Payment Required
+           { "accepts": [{ "network": "solana", "maxAmount": 18000, "asset": "USDC" }] }
+
+Agent  ->  sign SPL TransferChecked tx (USDC -> facilitator ATA)
+       ->  POST /serp/google  +  X-Payment: <base64 tx>
+Server <-  HTTP 200 OK  +  results
 ```
+
+No API subscriptions. No monthly billing. Pure pay-per-call machine-to-machine payments on Solana.
+
+---
+
+## SAP Integration
+
+TrendForge registers itself on the Synapse Agent Protocol, making it discoverable by other agents:
+
+```bash
+cargo run --bin register
+# Registers on SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ
+# Explorer: https://explorer.oobeprotocol.ai/agents/<wallet>
+```
+
+Agent wallet: `3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF`
+
+---
+
+## Run
+
+```bash
+# Clone and configure
+git clone https://github.com/BoozeLee/trendforge-agent
+cd trendforge-agent
+cp .env.example .env
+# Add your ACE_API_KEY from acedata.cloud dashboard -> API Keys
+
+# Demo (no funds required -- shows full workflow visually)
+cargo run --bin trendforge -- --demo
+
+# Live run (requires SOL for registration + USDC for x402 payments)
+cargo run --bin trendforge -- --once     # single run
+cargo run --bin trendforge              # autonomous loop (every hour)
+```
+
+---
+
+## Environment
+
+| Variable | Description |
+|---|---|
+| `ACE_API_KEY` | Ace Data Cloud bearer token (acedata.cloud dashboard -> API Keys) |
+| `SYNAPSE_RPC_URL` | Solana RPC endpoint |
+| `SOLANA_KEYPAIR_PATH` | Path to agent keypair JSON |
+| `SEARCH_QUERY` | Research topic for autonomous runs |
+| `WORKFLOW_INTERVAL_SECS` | Loop interval (default: 3600) |
+| `NVIDIA_API_KEY` | Fallback LLM if Ace unavailable |
+
+---
+
+## Stack
+
+- **Rust** — `tokio` async runtime, `reqwest`, `serde`
+- **Solana** — `solana-sdk 2.1`, `solana-rpc-client`, SPL token
+- **SAP** — Anchor program `SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ`
+- **x402** — HTTP 402 -> SPL TransferChecked -> X-Payment header
+- **Ace Data Cloud** — SERP + GPT-4o-mini + Midjourney via unified x402 API
+
+---
+
+## Bounty
+
+Built for [OOBE Protocol x Ace Data Cloud Bounty](https://oobeprotocol.ai) — Ace Data Cloud Usage category.
+
+- Demonstrates all 3 Ace Data Cloud services: web search, LLM, image generation
+- Every service call autonomously settled via x402 on Solana
+- SAP-registered agent discoverable on-chain by other agents
+- Fully autonomous loop -- no human input after deployment

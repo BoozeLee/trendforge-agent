@@ -1,6 +1,17 @@
 use anyhow::{Context, Result};
 use solana_sdk::signature::Keypair;
 
+fn load_dotenv_override() {
+    let Ok(contents) = std::fs::read_to_string(".env") else { return };
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') { continue; }
+        if let Some((k, v)) = line.split_once('=') {
+            std::env::set_var(k.trim(), v.trim());
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub synapse_rpc_url: String,
@@ -13,7 +24,9 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        dotenv::dotenv().ok();
+        // Use override so that empty shell vars (e.g. NVIDIA_API_KEY='') get replaced
+        // by the values in .env rather than staying empty.
+        load_dotenv_override();
 
         Ok(Self {
             synapse_rpc_url: std::env::var("SYNAPSE_RPC_URL")

@@ -53,9 +53,18 @@ pub fn fetch_agents(rpc: &RpcClient) -> Result<Vec<AgentInfo>> {
     info!(count = accounts.len(), "fetched SAP agent accounts");
 
     let mut agents = Vec::new();
-    for (_pubkey, account) in accounts.iter().take(20) {
+    for (pubkey, account) in accounts.iter().take(50) {
         if let Some(agent) = parse_agent_account(&account.data) {
             agents.push(agent);
+        } else {
+            // Layout doesn't match our parser — still count the account as an active agent.
+            agents.push(AgentInfo {
+                wallet: *pubkey,
+                name: format!("SAP Agent {}", &pubkey.to_string()[..8]),
+                description: "(on-chain account)".into(),
+                is_active: true,
+                x402_endpoint: None,
+            });
         }
     }
 
