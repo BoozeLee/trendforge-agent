@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: trendforge-agent
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: RUST_LOG
+        value: trendforge=info,warn
+      - key: SYNAPSE_RPC_URL
+        value: https://api.mainnet-beta.solana.com
+        sync: false
+      - key: ACE_DATA_API_BASE
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: SOLANA_KEYPAIR_PATH
+        value: /app/keys/agent.json
+        sync: false
+    healthCheckPath: /health
+    healthCheckStartupFailureThresholdCount: 10
+    port: 8402
