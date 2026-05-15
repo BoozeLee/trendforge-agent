@@ -103,7 +103,7 @@ fn main() -> Result<()> {
         agent_uri: Some("https://github.com/BoozeLee/trendforge-agent".into()),
         x402_endpoint: Some(
             std::env::var("X402_ENDPOINT")
-                .unwrap_or_else(|_| "https://68a9d07a55197f45-109-129-63-67.serveousercontent.com".into())
+                .unwrap_or_else(|_| "https://trendforge-agent.onrender.com".into())
         ),
     };
 
