@@ -21,9 +21,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Deserialize)]
 pub struct PaymentRequiredBody {
-    pub x402_version: Option<u32>,
     pub accepts: Vec<PaymentRequirement>,
-    pub error: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -41,12 +39,6 @@ pub struct PaymentRequirement {
 #[derive(Debug, Deserialize, Clone)]
 pub struct PaymentExtra {
     pub decimals: Option<u8>,
-    #[serde(rename = "computeUnitLimit")]
-    pub compute_unit_limit: Option<u32>,
-    #[serde(rename = "computeUnitPriceMicroLamports")]
-    pub compute_unit_price: Option<u64>,
-    #[serde(rename = "rpcUrl")]
-    pub rpc_url: Option<String>,
 }
 
 // ─── X-Payment envelope ───────────────────────────────────────────────────────

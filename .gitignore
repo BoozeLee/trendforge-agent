@@ -5,3 +5,4 @@ reports/
 import_wallet.py
 Cargo.lock
 supabase/
+hello-fly/

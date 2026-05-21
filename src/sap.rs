@@ -23,7 +23,6 @@ pub struct AgentInfo {
     pub name: String,
     pub description: String,
     pub is_active: bool,
-    pub x402_endpoint: Option<String>,
 }
 
 /// Fetch active agents from the SAP program (first 20).
@@ -63,7 +62,6 @@ pub fn fetch_agents(rpc: &RpcClient) -> Result<Vec<AgentInfo>> {
                 name: format!("SAP Agent {}", &pubkey.to_string()[..8]),
                 description: "(on-chain account)".into(),
                 is_active: true,
-                x402_endpoint: None,
             });
         }
     }
@@ -100,7 +98,6 @@ fn parse_agent_account(data: &[u8]) -> Option<AgentInfo> {
         name,
         description,
         is_active,
-        x402_endpoint: None,
     })
 }
 

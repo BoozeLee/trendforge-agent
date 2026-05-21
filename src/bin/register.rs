@@ -11,7 +11,6 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
-    system_program,
     transaction::Transaction,
 };
 use std::str::FromStr;
@@ -23,14 +22,8 @@ const GLOBAL_REGISTRY: &str = "9odFrYBBZq6UQC6aGyzMPNXWJQn55kMtfigzhLg6S6L5";
 struct Capability {
     id: String,
     description: Option<String>,
-    protocol_id: String,
-    version: String,
-}
-
-#[derive(BorshSerialize)]
-struct PricingEntry {
-    service_id: String,
-    price_usdc: u64,
+    protocol_id: Option<String>,
+    version: Option<String>,
 }
 
 #[derive(BorshSerialize)]
@@ -38,7 +31,7 @@ struct RegisterAgentArgs {
     name: String,
     description: String,
     capabilities: Vec<Capability>,
-    pricing: Vec<PricingEntry>,
+    pricing: Vec<String>,
     protocols: Vec<String>,
     agent_id: Option<String>,
     agent_uri: Option<String>,
@@ -59,7 +52,7 @@ fn load_keypair(path: &str) -> Result<Keypair> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("read keypair {path}"))?;
     let bytes: Vec<u8> = serde_json::from_str(raw.trim())?;
-    Keypair::from_bytes(&bytes).context("build keypair")
+    Keypair::try_from(bytes.as_slice()).context("build keypair")
 }
 
 fn main() -> Result<()> {
@@ -75,9 +68,8 @@ fn main() -> Result<()> {
     let program = Pubkey::from_str(SAP_PROGRAM_ID).unwrap();
     let global_registry = Pubkey::from_str(GLOBAL_REGISTRY).unwrap();
 
-    let agent_pda   = pda(&[b"sap_agent",   payer.pubkey().as_ref()], &program);
-    let stats_pda   = pda(&[b"sap_stats",   payer.pubkey().as_ref()], &program);
-    let pricing_pda = pda(&[b"sap_pricing", payer.pubkey().as_ref()], &program);
+    let agent_pda = pda(&[b"sap_agent", payer.pubkey().as_ref()], &program);
+    let stats_pda = pda(&[b"sap_stats", payer.pubkey().as_ref()], &program);
 
     if rpc.get_account(&agent_pda).is_ok() {
         println!("Agent already registered: {}", payer.pubkey());
@@ -94,8 +86,8 @@ fn main() -> Result<()> {
         capabilities: vec![Capability {
             id: "trend:research".into(),
             description: Some("Web search + LLM + image gen via Ace Data Cloud x402".into()),
-            protocol_id: "acedata".into(),
-            version: "1.0.0".into(),
+            protocol_id: Some("acedata".to_string()),
+            version: Some("1.0.0".to_string()),
         }],
         pricing: vec![],
         protocols: vec!["acedata".into()],
@@ -117,9 +109,8 @@ fn main() -> Result<()> {
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(agent_pda, false),
             AccountMeta::new(stats_pda, false),
-            AccountMeta::new(pricing_pda, false),
             AccountMeta::new(global_registry, false),
-            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(Pubkey::default(), false),
         ],
         data,
     };

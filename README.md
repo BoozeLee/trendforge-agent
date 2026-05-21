@@ -64,6 +64,7 @@ cargo run --bin register
 ```
 
 Agent wallet: `3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF`
+GitHub Repository: [BoozeLee/trendforge-agent](https://github.com/BoozeLee/trendforge-agent)
 
 ---
 
@@ -106,6 +107,27 @@ cargo run --bin trendforge              # autonomous loop (every hour)
 - **SAP** — Anchor program `SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ`
 - **x402** — HTTP 402 -> SPL TransferChecked -> X-Payment header
 - **Ace Data Cloud** — SERP + GPT-4o-mini + Midjourney via unified x402 API
+
+---
+
+## Deployment & Verification
+
+**Agent wallet:** `3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF`
+
+Fund with `≥ 0.01 SOL` (registration) + `~5 USDC` (x402 calls), then:
+
+```bash
+# 1. Register on SAP Mainnet (run once)
+cargo run --bin register
+
+# 2. Verify registration on explorer
+# https://explorer.oobeprotocol.ai/agents/3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF
+
+# 3. Run one autonomous cycle
+cargo run --bin trendforge -- --once
+```
+
+**IDL verification:** The SAP v2 IDL was cloned from Mainnet (`--clone SAPpUhsWLJG1FfkGRcXagEDMrMsWGjbky7AyhGpFETZ`) and all discriminators verified against the Rust Anchor types before submission.
 
 ---
 

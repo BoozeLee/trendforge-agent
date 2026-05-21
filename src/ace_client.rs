@@ -60,31 +60,6 @@ impl AceClient {
         self.parse_ok(resp).await
     }
 
-    pub async fn get(&self, path: &str, query: &[(&str, &str)], rpc: &RpcClient, payer: &Keypair) -> Result<Value> {
-        let url = format!("{}{}", self.base, path);
-        let req = self.http.get(&url).query(query);
-        let req = if let Some(k) = &self.api_key {
-            req.header("Authorization", format!("Bearer {k}"))
-        } else {
-            req
-        };
-
-        let resp = req.send().await.context("GET request")?;
-
-        if resp.status() == StatusCode::PAYMENT_REQUIRED && self.api_key.is_none() {
-            let req_info = self.extract_solana_req(resp).await?;
-            info!(amount = req_info.max_amount_required, "x402: signing Solana payment");
-            let header = x402::build_x402_header(rpc, payer, &req_info)?;
-            return self.parse_ok(
-                self.http.get(&url).query(query)
-                    .header("X-Payment", &header)
-                    .send().await.context("retry with X-Payment")?
-            ).await;
-        }
-
-        self.parse_ok(resp).await
-    }
-
     async fn extract_solana_req(&self, resp: Response) -> Result<PaymentRequirement> {
         let body: PaymentRequiredBody = resp.json().await.context("parse 402 body")?;
         x402::pick_solana_req(&body.accepts)
@@ -101,10 +76,6 @@ impl AceClient {
         serde_json::from_str(&text).context("parse JSON")
     }
 
-    pub fn is_ace_auth_error(e: &anyhow::Error) -> bool {
-        let msg = e.to_string();
-        msg.contains("401") || msg.contains("403") || msg.contains("invalid") || msg.contains("token")
-    }
 }
 
 // ─── Service wrappers with fallback chain ─────────────────────────────────────
@@ -322,7 +293,7 @@ impl<'a> AceServices<'a> {
 fn simulate_search(query: &str) -> Vec<SearchResult> {
     vec![
         SearchResult {
-            title: Some(format!("AI Agents on Solana: 2026 State of the Ecosystem")),
+            title: Some("AI Agents on Solana: 2026 State of the Ecosystem".to_string()),
             link: Some("https://solana.com/news/ai-agents-2026".into()),
             snippet: Some(format!("Autonomous agents leveraging SAP protocol and x402 payments are reshaping how AI interacts with blockchain. Query context: {query}")),
         },

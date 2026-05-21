@@ -116,7 +116,7 @@ fn save_report(report: &Report) -> Result<()> {
     let filename = format!(
         "{}/{}.json",
         dir,
-        report.timestamp.replace(':', "-").replace('.', "-")
+        report.timestamp.replace([':', '.'], "-")
     );
     let json = serde_json::to_string_pretty(report)?;
     fs::write(&filename, &json)?;
