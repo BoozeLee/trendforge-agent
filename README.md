@@ -6,6 +6,12 @@ Built for the **OOBE Protocol × Ace Data Cloud Bounty** (Ace Data Cloud Usage c
 
 ---
 
+## Portfolio Summary
+
+TrendForge is a systems-focused Rust project that demonstrates autonomous workflow design, typed service boundaries, Solana transaction handling, and payment-aware AI service orchestration. It is public to show low-level backend work rather than only web UI projects.
+
+---
+
 ## Architecture
 
 ```
@@ -113,6 +119,14 @@ cargo run --bin trendforge              # autonomous loop (every hour)
 ## Deployment & Verification
 
 **Agent wallet:** `3L5ZJQDzBUDwautD734carHphTtgojAktSvNywnQsuQF`
+
+Local quality gates:
+
+```bash
+cargo fmt --check
+cargo check
+cargo test
+```
 
 Fund with `≥ 0.01 SOL` (registration) + `~5 USDC` (x402 calls), then:
 
