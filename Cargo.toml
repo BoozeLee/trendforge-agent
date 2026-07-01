@@ -36,6 +36,6 @@ bs58 = "0.5"
 hex = "0.4"
 urlencoding = "2"
 axum = { version = "0.7", features = ["macros"] }
-tower = "0.4"
+tower = "0.5"
 tower-http = { version = "0.5", features = ["trace"] }
 bincode = "1"
