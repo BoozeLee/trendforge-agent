@@ -22,7 +22,7 @@ solana-client = "2.1"
 solana-rpc-client = "2.1"
 solana-rpc-client-api = "2.1"
 solana-account-decoder-client-types = "2.1"
-spl-token = { version = "6", features = ["no-entrypoint"] }
+spl-token = { version = "9", features = ["no-entrypoint"] }
 spl-associated-token-account = { version = "4", features = ["no-entrypoint"] }
 borsh = { version = "1", features = ["derive"] }
 sha2 = "0.10"
